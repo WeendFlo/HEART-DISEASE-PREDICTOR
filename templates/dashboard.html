@@ -1,0 +1,255 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">Health Dashboard</h1>
+    <p class="page-subtitle">Overview of predictions, model performance, and feature insights</p>
+</div>
+
+<!-- STAT CARDS -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-value" style="color: var(--accent);">{{ stats.user_total }}</div>
+        <div class="stat-label">Your Predictions</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value" style="color: var(--danger);">{{ stats.user_high }}</div>
+        <div class="stat-label">High Risk Found</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value" style="color: var(--success);">{{ stats.user_low }}</div>
+        <div class="stat-label">Low Risk Found</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value" style="color: var(--purple);">{{ stats.global_total }}</div>
+        <div class="stat-label">Total Predictions (All Users)</div>
+    </div>
+</div>
+
+<!-- RISK DISTRIBUTION -->
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+    <div class="card">
+        <div class="card-header">
+            <div class="card-icon" style="background: var(--accent-glow); color: var(--accent);">📊</div>
+            <div>
+                <div class="card-title">Your Risk Distribution</div>
+                <div class="card-subtitle">Breakdown of your prediction results</div>
+            </div>
+        </div>
+        {% if stats.user_total > 0 %}
+        <div style="display: flex; gap: 16px; align-items: center; margin-bottom: 16px;">
+            <div style="flex: 1;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 0.85rem;">
+                    <span style="color: var(--success);">Low Risk</span>
+                    <span style="font-family: var(--font-mono);">{{ stats.user_low }}</span>
+                </div>
+                <div style="height: 12px; background: var(--bg); border-radius: 6px; overflow: hidden;">
+                    <div style="height: 100%; width: {{ (stats.user_low / stats.user_total * 100) if stats.user_total > 0 else 0 }}%; background: var(--success); border-radius: 6px; transition: width 1s;"></div>
+                </div>
+            </div>
+        </div>
+        <div style="display: flex; gap: 16px; align-items: center;">
+            <div style="flex: 1;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 0.85rem;">
+                    <span style="color: var(--danger);">High Risk</span>
+                    <span style="font-family: var(--font-mono);">{{ stats.user_high }}</span>
+                </div>
+                <div style="height: 12px; background: var(--bg); border-radius: 6px; overflow: hidden;">
+                    <div style="height: 100%; width: {{ (stats.user_high / stats.user_total * 100) if stats.user_total > 0 else 0 }}%; background: var(--danger); border-radius: 6px; transition: width 1s;"></div>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <p style="color: var(--text-muted); font-size: 0.9rem;">No predictions yet. Go to the <a href="{{ url_for('predict') }}" style="color: var(--accent);">Predict</a> page to get started.</p>
+        {% endif %}
+    </div>
+
+    <!-- GLOBAL RISK DISTRIBUTION -->
+    <div class="card">
+        <div class="card-header">
+            <div class="card-icon" style="background: var(--purple-bg); color: var(--purple);">🌐</div>
+            <div>
+                <div class="card-title">Global Risk Distribution</div>
+                <div class="card-subtitle">All predictions across all users</div>
+            </div>
+        </div>
+        {% if stats.global_total > 0 %}
+        <div style="display: flex; align-items: center; gap: 20px;">
+            <div style="position: relative; width: 120px; height: 120px;">
+                {% set high_pct = (stats.global_high / stats.global_total * 100)|round(0)|int if stats.global_total > 0 else 0 %}
+                {% set low_pct = 100 - high_pct %}
+                <svg viewBox="0 0 36 36" style="width: 120px; height: 120px; transform: rotate(-90deg);">
+                    <circle cx="18" cy="18" r="15.9" fill="none" stroke="var(--bg)" stroke-width="3"/>
+                    <circle cx="18" cy="18" r="15.9" fill="none" stroke="#10b981" stroke-width="3"
+                            stroke-dasharray="{{ low_pct }} {{ high_pct }}" stroke-linecap="round"/>
+                    <circle cx="18" cy="18" r="15.9" fill="none" stroke="#ef4444" stroke-width="3"
+                            stroke-dasharray="{{ high_pct }} {{ low_pct }}" stroke-dashoffset="-{{ low_pct }}" stroke-linecap="round"/>
+                </svg>
+                <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:1.2rem;font-weight:700;">
+                    {{ stats.global_total }}
+                </div>
+            </div>
+            <div>
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                    <span style="width:10px;height:10px;border-radius:50%;background:var(--success);"></span>
+                    <span style="font-size:0.85rem;">Low Risk: {{ stats.global_low }} ({{ low_pct }}%)</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <span style="width:10px;height:10px;border-radius:50%;background:var(--danger);"></span>
+                    <span style="font-size:0.85rem;">High Risk: {{ stats.global_high }} ({{ high_pct }}%)</span>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <p style="color: var(--text-muted); font-size: 0.9rem;">No predictions have been made yet.</p>
+        {% endif %}
+    </div>
+</div>
+
+<!-- MODEL PERFORMANCE COMPARISON -->
+<div class="section-label">Model performance comparison</div>
+<div class="card">
+    <div class="card-header">
+        <div class="card-icon" style="background: var(--warning-bg); color: var(--warning);">🏆</div>
+        <div>
+            <div class="card-title">Model Comparison</div>
+            <div class="card-subtitle">How each ML model performed on the test dataset (184 patients)</div>
+        </div>
+    </div>
+
+    {% set best_acc = stats.model_performance.values()|map(attribute='accuracy')|max %}
+
+    <table class="perf-table">
+        <thead>
+            <tr>
+                <th>Model</th>
+                <th>Accuracy</th>
+                <th>Precision</th>
+                <th>Recall</th>
+                <th style="width: 200px;">Accuracy Bar</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for name, perf in stats.model_performance.items() %}
+            <tr>
+                <td style="font-family: var(--font); font-weight: 500;">{{ name.replace('_', ' ').title() }}</td>
+                <td>{{ '%.1f'|format(perf.accuracy * 100) }}%</td>
+                <td>{{ '%.1f'|format(perf.precision * 100) }}%</td>
+                <td>{{ '%.1f'|format(perf.recall * 100) }}%</td>
+                <td>
+                    <div style="height:8px;background:var(--bg);border-radius:4px;overflow:hidden;">
+                        <div style="height:100%;width:{{ perf.accuracy * 100 }}%;background:linear-gradient(90deg, var(--accent), var(--purple));border-radius:4px;transition:width 1s;"></div>
+                    </div>
+                </td>
+                <td>
+                    {% if perf.accuracy == best_acc %}
+                    <span class="badge badge-best">Best</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- FEATURE IMPORTANCE — ALL MODELS -->
+<div class="section-label">Feature importance by model</div>
+<div class="card">
+    <div class="card-header">
+        <div class="card-icon" style="background: rgba(5,150,105,0.08); color: var(--success);">🧬</div>
+        <div>
+            <div class="card-title">Which Features Matter Most</div>
+            <div class="card-subtitle">Click a model tab to see how it weighs each health parameter</div>
+        </div>
+    </div>
+
+    <!-- Model tabs -->
+    <div style="display:flex;gap:6px;margin-bottom:1.25rem;">
+        {% for model_name in stats.all_feat_importance.keys() %}
+        <button onclick="showImportance('{{ model_name }}')" id="tab-{{ model_name }}"
+                style="padding:8px 16px;border-radius:8px;border:2px solid var(--border);background:var(--bg);cursor:pointer;font-family:var(--font);font-size:0.82rem;font-weight:700;color:var(--text-muted);transition:all 0.2s;">
+            {{ model_name.replace('_', ' ').title() }}
+        </button>
+        {% endfor %}
+    </div>
+
+    {% set colors = ['#3b82f6', '#8b5cf6', '#14b8a6', '#f59e0b', '#ef4444', '#10b981', '#ec4899', '#6366f1', '#f97316', '#06b6d4'] %}
+
+    {% for model_name, feats in stats.all_feat_importance.items() %}
+    <div id="imp-{{ model_name }}" class="importance-panel" style="display:none;">
+        <div class="bar-chart">
+            {% set max_imp = feats[0].value if feats else 1 %}
+            {% for feat in feats %}
+            <div class="bar-row">
+                <span class="bar-label">{{ feat.name }}</span>
+                <div class="bar-track">
+                    <div class="bar-fill" style="width: {{ feat.value / max_imp * 100 }}%; background: {{ colors[loop.index0 % 10] }};">
+                        {% if feat.value / max_imp * 100 > 15 %}{{ feat.value }}%{% endif %}
+                    </div>
+                </div>
+                <span style="font-family:var(--font-mono);font-size:0.8rem;color:var(--text-muted);min-width:45px;text-align:right;">{{ feat.value }}%</span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<script>
+function showImportance(model) {
+    document.querySelectorAll('.importance-panel').forEach(p => p.style.display = 'none');
+    document.querySelectorAll('[id^="tab-"]').forEach(t => {
+        t.style.borderColor = 'var(--border)';
+        t.style.background = 'var(--bg)';
+        t.style.color = 'var(--text-muted)';
+    });
+    document.getElementById('imp-' + model).style.display = 'block';
+    var tab = document.getElementById('tab-' + model);
+    tab.style.borderColor = '#6366f1';
+    tab.style.background = '#eef2ff';
+    tab.style.color = '#6366f1';
+}
+showImportance('decision_tree');
+</script>
+
+<!-- RECENT PREDICTIONS -->
+{% if stats.recent_predictions %}
+<div class="section-label">Your recent predictions</div>
+<div class="card" style="overflow-x: auto;">
+    <table class="history-table">
+        <thead>
+            <tr>
+                <th>Time</th>
+                <th>Age</th>
+                <th>BP</th>
+                <th>Chol</th>
+                <th>Max HR</th>
+                <th>Model</th>
+                <th>Result</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for pred in stats.recent_predictions %}
+            <tr>
+                <td style="color:var(--text-muted);font-size:0.8rem;">{{ pred.timestamp }}</td>
+                <td>{{ pred.patient_data.age|int }}</td>
+                <td>{{ pred.patient_data.trestbps|int }}</td>
+                <td>{{ pred.patient_data.chol|int }}</td>
+                <td>{{ pred.patient_data.thalch|int }}</td>
+                <td style="font-size:0.8rem;">{{ pred.selected_model.replace('_',' ').title() }}</td>
+                <td>
+                    <span class="badge {{ 'badge-best' if pred.result == 'Low Risk' }}"
+                          style="{{ 'background:var(--danger-bg);color:var(--danger);border:1px solid rgba(239,68,68,0.2);' if pred.result == 'High Risk' }}">
+                        {{ pred.result }}
+                    </span>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+{% endblock %}

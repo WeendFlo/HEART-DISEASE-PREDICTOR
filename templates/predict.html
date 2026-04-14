@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+{% block title %}Predict{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">Heart Disease Risk Prediction</h1>
+    <p class="page-subtitle">Enter patient health parameters to assess heart disease risk using machine learning</p>
+</div>
+
+<form method="POST" id="predict-form">
+
+    <!-- MODEL SELECTOR -->
+    <div class="card">
+        <div class="card-header">
+            <div class="card-icon" style="background: var(--purple-bg); color: var(--purple);">🤖</div>
+            <div>
+                <div class="card-title">Choose ML Model</div>
+                <div class="card-subtitle">Select which trained model to use for prediction</div>
+            </div>
+        </div>
+        <div class="model-selector">
+            {% for key, perf in model_perf.items() %}
+            <label class="model-option">
+                <input type="radio" name="model" value="{{ key }}" {{ 'checked' if key == 'decision_tree' }}>
+                <span class="option-label">
+                    {{ key.replace('_', ' ').title() }}
+                    <span class="option-acc">{{ '%.1f'|format(perf.accuracy * 100) }}% accuracy</span>
+                </span>
+            </label>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- PATIENT DATA FORM -->
+    <div class="card">
+        <div class="card-header">
+            <div class="card-icon" style="background: var(--accent-glow); color: var(--accent);">📋</div>
+            <div>
+                <div class="card-title">Patient Health Parameters</div>
+                <div class="card-subtitle">All fields are required for accurate prediction</div>
+            </div>
+        </div>
+        <div class="form-grid">
+            {% for feat in feature_names %}
+            {% set info = features[feat] %}
+            <div class="form-group">
+                <label>{{ info.label }}{% if info.get('unit') %} <span style="color:var(--text-dim)">({{ info.unit }})</span>{% endif %}</label>
+                {% if info.get('type') == 'select' %}
+                <select name="{{ feat }}" required>
+                    <option value="" disabled selected>Select...</option>
+                    {% for val, label in info.options.items() %}
+                    <option value="{{ val }}"
+                        {% if result and result.patient_data[feat]|string == val %}selected{% endif %}>
+                        {{ label }}
+                    </option>
+                    {% endfor %}
+                </select>
+                {% else %}
+                <input type="number"
+                       name="{{ feat }}"
+                       min="{{ info.min }}"
+                       max="{{ info.max }}"
+                       step="{{ info.step }}"
+                       value="{{ result.patient_data[feat] if result else info.default }}"
+                       required
+                       placeholder="{{ info.default }}">
+                {% endif %}
+                <span class="help-text">{{ info.help }}</span>
+            </div>
+            {% endfor %}
+        </div>
+
+        <div style="margin-top: 1.5rem; display: flex; gap: 12px; flex-wrap: wrap;">
+            <button type="submit" class="btn btn-primary" style="min-width: 200px;">
+                ⚡ Predict Risk
+            </button>
+            <button type="reset" class="btn btn-secondary">Clear Form</button>
+        </div>
+    </div>
+</form>
+
+<!-- ===== RESULTS (shown after prediction) ===== -->
+{% if result %}
+<div id="results" style="scroll-margin-top: 80px;">
+
+    <!-- PRIMARY RESULT -->
+    <div class="card {{ 'result-high-risk' if result.primary.prediction == 1 else 'result-low-risk' }}">
+        <div style="display: flex; align-items: center; gap: 16px;">
+            <div style="font-size: 3rem;">
+                {{ '🔴' if result.primary.prediction == 1 else '🟢' }}
+            </div>
+            <div>
+                <div style="font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">
+                    {{ result.selected_model.replace('_', ' ').title() }} Prediction
+                </div>
+                <div class="result-label">{{ result.primary.label }} of Heart Disease</div>
+                <div style="color: var(--text-muted);">
+                    Probability: <strong style="font-family: var(--font-mono);">{{ '%.1f'|format(result.primary.probability * 100) }}%</strong>
+                </div>
+            </div>
+        </div>
+        <div class="probability-bar">
+            <div class="probability-fill"
+                 style="width: {{ result.primary.probability * 100 }}%;
+                        background: linear-gradient(90deg,
+                        {{ '#10b981' if result.primary.probability < 0.5 else '#ef4444' }},
+                        {{ '#f59e0b' if result.primary.probability < 0.5 else '#dc2626' }});">
+            </div>
+        </div>
+    </div>
+
+    <!-- ALL 3 MODELS COMPARISON -->
+    <div class="section-label">All models comparison</div>
+    <div class="model-grid">
+        {% for name, pred in result.all_predictions.items() %}
+        <div class="model-card {{ 'selected' if name == result.selected_model }} {{ 'agree-high' if pred.prediction == 1 else 'agree-low' }}">
+            <div class="model-name">{{ name.replace('_', ' ').title() }}</div>
+            <div class="model-prob {{ 'text-danger' if pred.prediction == 1 else 'text-success' }}"
+                 style="color: {{ 'var(--danger)' if pred.prediction == 1 else 'var(--success)' }}">
+                {{ '%.1f'|format(pred.probability * 100) }}%
+            </div>
+            <div class="model-prediction" style="color: {{ 'var(--danger)' if pred.prediction == 1 else 'var(--success)' }}; font-size: 0.9rem;">
+                {{ pred.label }}
+            </div>
+            {% if name == result.selected_model %}
+            <div style="margin-top: 8px;">
+                <span class="badge badge-best">Selected</span>
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- EXPLAINABLE PREDICTIONS -->
+    {% if result.explanation %}
+    <div class="section-label">What influenced this prediction</div>
+    <div class="card">
+        <div class="card-header">
+            <div class="card-icon" style="background: var(--warning-bg); color: var(--warning);">🔍</div>
+            <div>
+                <div class="card-title">Feature Importance Breakdown</div>
+                <div class="card-subtitle">Which health parameters most influenced the prediction</div>
+            </div>
+        </div>
+
+        {% for exp in result.explanation %}
+        <div class="explanation-item">
+            <span class="exp-label">{{ exp.feature }}</span>
+            <div class="exp-bar-container">
+                <div class="exp-bar {{ exp.risk_level }}" style="width: {{ exp.importance }}%;"></div>
+            </div>
+            <span class="exp-value">{{ exp.importance }}%</span>
+            <span class="exp-detail">{{ exp.detail }}</span>
+        </div>
+        {% endfor %}
+
+        <div style="margin-top: 1rem; padding: 12px; background: var(--bg); border-radius: var(--radius-sm); font-size: 0.8rem; color: var(--text-muted);">
+            ⚠️ This is a screening tool only. Always consult a qualified healthcare professional for medical decisions.
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+    // Smooth scroll to results
+    document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
+</script>
+{% endif %}
+
+{% endblock %}

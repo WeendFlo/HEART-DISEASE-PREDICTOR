@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}History{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">Prediction History</h1>
+    <p class="page-subtitle">All predictions made under your account</p>
+</div>
+
+{% if predictions %}
+<div class="card" style="overflow-x: auto;">
+    <table class="history-table">
+        <thead>
+            <tr>
+                <th>Date & Time</th>
+                <th>Age</th>
+                <th>Sex</th>
+                <th>BP</th>
+                <th>Chol</th>
+                <th>Max HR</th>
+                <th>FBS</th>
+                <th>Model Used</th>
+                <th>LR Prob</th>
+                <th>DT Prob</th>
+                <th>RF Prob</th>
+                <th>Result</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for pred in predictions %}
+            <tr>
+                <td style="color:var(--text-muted);font-size:0.8rem;white-space:nowrap;">{{ pred.timestamp }}</td>
+                <td>{{ pred.patient_data.age|int }}</td>
+                <td>{{ 'M' if pred.patient_data.sex|int == 1 else 'F' }}</td>
+                <td>{{ pred.patient_data.trestbps|int }}</td>
+                <td>{{ pred.patient_data.chol|int }}</td>
+                <td>{{ pred.patient_data.thalch|int }}</td>
+                <td>{{ 'Y' if pred.patient_data.fbs|int == 1 else 'N' }}</td>
+                <td style="font-size:0.8rem;">{{ pred.selected_model.replace('_',' ').title() }}</td>
+                <td style="font-family:var(--font-mono);font-size:0.8rem;">
+                    {{ '%.0f'|format(pred.predictions.logistic_regression.probability * 100) }}%
+                </td>
+                <td style="font-family:var(--font-mono);font-size:0.8rem;">
+                    {{ '%.0f'|format(pred.predictions.decision_tree.probability * 100) }}%
+                </td>
+                <td style="font-family:var(--font-mono);font-size:0.8rem;">
+                    {{ '%.0f'|format(pred.predictions.random_forest.probability * 100) }}%
+                </td>
+                <td>
+                    <span class="badge {{ 'badge-best' if pred.result == 'Low Risk' }}"
+                          style="{{ 'background:var(--danger-bg);color:var(--danger);border:1px solid rgba(239,68,68,0.2);' if pred.result == 'High Risk' }}">
+                        {{ pred.result }}
+                    </span>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div style="text-align:center;margin-top:1rem;">
+    <span style="color:var(--text-muted);font-size:0.85rem;">{{ predictions|length }} prediction{{ 's' if predictions|length != 1 }} total</span>
+</div>
+
+{% else %}
+<div class="card" style="text-align:center;padding:3rem;">
+    <div style="font-size:3rem;margin-bottom:1rem;">📋</div>
+    <h3 style="margin-bottom:0.5rem;">No predictions yet</h3>
+    <p style="color:var(--text-muted);margin-bottom:1.5rem;">Start by making your first heart disease risk prediction</p>
+    <a href="{{ url_for('predict') }}" class="btn btn-primary">Make a Prediction</a>
+</div>
+{% endif %}
+
+{% endblock %}
